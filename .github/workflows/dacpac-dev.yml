@@ -12,35 +12,57 @@ env:
   DACPAC_FILE: Labs.Dacpac.MyDatabase/bin/Release/Labs.Dacpac.MyDatabase.dacpac
 
 jobs:
-  build-and-deploy:
+  # 🧱 BUILD JOB - Runs on Windows to produce DACPAC
+  build:
     runs-on: windows-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Azure login with service principal credentials
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Restore packages
+        run: nuget restore Labs.Dacpac.MyDatabase.sln
+
+      - name: Build SQL project (DACPAC)
+        run: msbuild Labs.Dacpac.MyDatabase.sln /p:Configuration=Release
+
+      - name: Upload DACPAC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dacpac-artifact
+          path: ${{ env.DACPAC_FILE }}
+
+  # 🚀 DEPLOY JOB - Runs on Linux to use Azure CLI
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download DACPAC artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dacpac-artifact
+          path: dacpac
+
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      # ✅ Build DACPAC (if needed)
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Build SQL project
-        run: msbuild Labs.Dacpac.MyDatabase.sln /p:Configuration=Release
-
-      # ✅ Deploy DACPAC using Azure CLI and sqlpackage
       - name: Deploy DACPAC to Azure SQL Managed Instance
         uses: azure/cli@v2
         with:
           azcliversion: latest
           inlineScript: |
-            echo "Deploying DACPAC to Managed Instance using connection string secret..."
+            echo "Deploying DACPAC to Managed Instance..."
             sqlpackage /Action:Publish \
-              /SourceFile:"${{ env.DACPAC_FILE }}" \
+              /SourceFile:"dacpac/Labs.Dacpac.MyDatabase.dacpac" \
               /TargetConnectionString:"${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}" \
               /p:BlockOnPossibleDataLoss=true \
               /p:DropObjectsNotInSource=false \
