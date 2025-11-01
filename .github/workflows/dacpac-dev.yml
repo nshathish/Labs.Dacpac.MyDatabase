@@ -1,62 +1,47 @@
-name: Deployment Pipeline for Azure SQL MI
+# File: .github/workflows/deploy-sql-mi.yml
+
+name: Deploy DACPAC to Azure SQL MI
 
 on:
-  pull_request:
+  push:
     branches:
       - main
   workflow_dispatch:
 
 env:
-  BUILD_CONFIGURATION: Release
-  SOLUTION_FILE: "Labs.Dacpac.MyDatabase.sln"
-  DACPAC_PATH: "Labs.Dacpac.MyDatabase/bin/Release/*.dacpac"
+  DACPAC_FILE: Labs.Dacpac.MyDatabase/bin/Release/Labs.Dacpac.MyDatabase.dacpac
 
 jobs:
-  build:
-    runs-on: windows-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
-
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
-
-      - name: Restore NuGet packages
-        run: nuget restore ${{ env.SOLUTION_FILE }}
-
-      - name: Build SQL Database project
-        run: msbuild ${{ env.SOLUTION_FILE }} /p:Configuration=${{ env.BUILD_CONFIGURATION }}
-
-      - name: Upload DACPAC artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: dacpac-artifact
-          path: ${{ env.DACPAC_PATH }}
-
-  deploy:
-    needs: build
-    runs-on: windows-latest
-
-    steps:
-      - name: Download DACPAC artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dacpac-artifact
-          path: dacpac
-
+      # ✅ Azure login with service principal credentials
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      # ✅ Build DACPAC (if needed)
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build SQL project
+        run: msbuild Labs.Dacpac.MyDatabase.sln /p:Configuration=Release
+
+      # ✅ Deploy DACPAC using Azure CLI and sqlpackage
       - name: Deploy DACPAC to Azure SQL Managed Instance
-        uses: azure/sql-action@v2
+        uses: azure/cli@v2
         with:
-          connection-string: ${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}
-          path: dacpac/*.dacpac
-          action: Publish
-          arguments: "/p:BlockOnPossibleDataLoss=true /p:DropObjectsNotInSource=false /p:VerifyDeployment=true"
+          azcliversion: latest
+          inlineScript: |
+            echo "Deploying DACPAC to Managed Instance using connection string secret..."
+            sqlpackage /Action:Publish \
+              /SourceFile:"${{ env.DACPAC_FILE }}" \
+              /TargetConnectionString:"${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}" \
+              /p:BlockOnPossibleDataLoss=true \
+              /p:DropObjectsNotInSource=false \
+              /p:VerifyDeployment=true
