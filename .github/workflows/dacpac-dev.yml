@@ -55,15 +55,19 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Deploy DACPAC to Azure SQL Managed Instance
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            echo "Deploying DACPAC to Managed Instance..."
-            sqlpackage /Action:Publish \
-              /SourceFile:"dacpac/Labs.Dacpac.MyDatabase.dacpac" \
-              /TargetConnectionString:"${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}" \
-              /p:BlockOnPossibleDataLoss=true \
-              /p:DropObjectsNotInSource=false \
-              /p:VerifyDeployment=true
+      - name: Install and Run sqlpackage for SQL MI
+        run: |
+          echo "Installing sqlpackage..."
+          wget -q -O sqlpackage.zip https://aka.ms/sqlpackage-linux
+          sudo unzip -q sqlpackage.zip -d /usr/local/bin/sqlpackage
+          sudo chmod +x /usr/local/bin/sqlpackage/sqlpackage
+
+          echo "Deploying to Azure SQL Managed Instance..."
+          /usr/local/bin/sqlpackage/sqlpackage /Action:Publish \
+            /SourceFile:"dacpac/Labs.Dacpac.MyDatabase.dacpac" \
+            /TargetConnectionString:"${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}" \
+            /p:BlockOnPossibleDataLoss=true \
+            /p:DropObjectsNotInSource=false \
+            /p:VerifyDeployment=true
+
+          echo "✅ DACPAC deployed successfully to SQL Managed Instance"
