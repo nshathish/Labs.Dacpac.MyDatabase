@@ -1,0 +1,57 @@
+name: Deployment Pipeline for Azure SQL MI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  BUILD_CONFIGURATION: Release
+  SOLUTION_FILE: "**/*.sln"
+  DACPAC_PATH: "**/bin/Release/*.dacpac"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Build solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-restore
+
+      - name: Publish DACPAC
+        run: dotnet publish ${{ env.SOLUTION_FILE }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build
+
+      - name: Upload DACPAC artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dacpac-artifact
+          path: ${{ env.DACPAC_PATH }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download DACPAC artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dacpac-artifact
+          path: ./dacpac
+
+      - name: Deploy to Azure SQL Managed Instance
+        uses: azure/sql-action@v2
+        with:
+          connection-string: ${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}
+          path: ./dacpac/*.dacpac
