@@ -48,10 +48,15 @@ jobs:
           name: dacpac-artifact
           path: dacpac
 
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: Deploy DACPAC to Azure SQL Managed Instance
         uses: azure/sql-action@v2
         with:
           connection-string: ${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}
           path: dacpac/*.dacpac
           action: Publish
-          arguments: "/p:BlockOnPossibleDataLoss=true /p:DropObjectsNotInSource=false"
+          arguments: "/p:BlockOnPossibleDataLoss=true /p:DropObjectsNotInSource=false /p:VerifyDeployment=true"
