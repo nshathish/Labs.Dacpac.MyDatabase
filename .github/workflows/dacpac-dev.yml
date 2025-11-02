@@ -31,11 +31,7 @@ jobs:
         run: dotnet restore ${{ env.PROJECT_PATH }}
 
       - name: Build DACPAC
-        run: |
-          dotnet build ${{ env.PROJECT_PATH }} \
-            -p:NetCoreBuild=true \
-            -c Release \
-            --no-restore
+        run: dotnet build "${{ env.PROJECT_PATH }}" -p:NetCoreBuild=true -c Release --no-restore
 
       - name: Upload DACPAC artifact
         uses: actions/upload-artifact@v5
