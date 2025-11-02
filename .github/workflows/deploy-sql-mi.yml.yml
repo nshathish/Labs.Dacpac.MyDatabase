@@ -14,6 +14,9 @@ on:
   # 🔹 Allow manual triggering (optional)
   workflow_dispatch:
 
+permissions:
+  pull-requests: write # ✅ allows posting PR comments
+
 env:
   PROJECT_NAME: Labs.Dacpac.MyDatabase
   PROJECT_PATH: Labs.Dacpac.MyDatabase/Labs.Dacpac.MyDatabase.sqlproj
@@ -42,6 +45,17 @@ jobs:
         with:
           name: ${{ env.PROJECT_NAME }}.${{ github.run_id }}
           path: ${{ env.DACPAC_FILE }}
+
+      # ✅ Post a comment to the PR when build succeeds
+      - name: Post build result as PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ✅ **DACPAC Build Succeeded**
+            - Project: `${{ env.PROJECT_NAME }}`
+            - Commit: `${{ github.sha }}`
+            - Run: [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
   # 🚀 DEPLOY JOB - Runs on Linux to use Azure CLI
   deploy:
@@ -72,18 +86,12 @@ jobs:
 
       - name: Deploy DACPAC to Azure SQL Managed Instance
         run: |
-          echo "Deploying DACPAC..."
+          echo "🚀 Deploying DACPAC to Azure SQL Managed Instance..."
           /usr/local/bin/sqlpackage/sqlpackage /Action:Publish \
-            /SourceFile:"dacpac/${{ env.PROJECT_NAME }}.dacpac" \
+            /SourceFile:"dacpac/Labs.Dacpac.MyDatabase.dacpac" \
             /TargetConnectionString:"${{ secrets.AZURE_SQL_MI_CONNECTION_STRING }}" \
-            /p:IncludeCompositeObjects=true \
-            /p:BlockOnPossibleDataLoss=false \
-            /p:IgnorePermissions=true \
-            /p:IgnoreUserSettingsObjects=true \
-            /p:ExcludeObjectTypes=Users;ServerRoleMembership;ServerRoles;DatabaseRoles \
-            /p:IgnoreIndexOptions=True \
-            /p:IgnoreLockHintsOnIndexes=True \
-            /p:DropIndexesNotInSource=False \
+            /p:BlockOnPossibleDataLoss=true \
+            /p:DropObjectsNotInSource=false \
             /p:VerifyDeployment=true
 
-          echo "✅ Deployment completed successfully."
+          echo "✅ DACPAC deployed successfully to SQL Managed Instance"
