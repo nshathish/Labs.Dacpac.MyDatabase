@@ -9,33 +9,38 @@ on:
   workflow_dispatch:
 
 env:
+  PROJECT_NAME: Labs.Dacpac.MyDatabase
+  PROJECT_PATH: Labs.Dacpac.MyDatabase/Labs.Dacpac.MyDatabase.sqlproj
   DACPAC_FILE: Labs.Dacpac.MyDatabase/bin/Release/Labs.Dacpac.MyDatabase.dacpac
 
 jobs:
-  # 🧱 BUILD JOB - Runs on Windows to produce DACPAC
+  # 🧱 BUILD JOB - Builds DACPAC cross-platform using .NET SDK
   build:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: "9.0.x"
 
-      - name: Setup NuGet
-        uses: NuGet/setup-nuget@v2
+      - name: Restore dependencies
+        run: dotnet restore ${{ env.PROJECT_PATH }}
 
-      - name: Restore packages
-        run: nuget restore Labs.Dacpac.MyDatabase.sln
-
-      - name: Build SQL project (DACPAC)
-        run: msbuild Labs.Dacpac.MyDatabase.sln /p:Configuration=Release
+      - name: Build DACPAC
+        run: |
+          dotnet build ${{ env.PROJECT_PATH }} \
+            -p:NetCoreBuild=true \
+            -c Release \
+            --no-restore
 
       - name: Upload DACPAC artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: dacpac-artifact
+          name: ${{ env.PROJECT_NAME }}.${{ github.run_id }}
           path: ${{ env.DACPAC_FILE }}
 
   # 🚀 DEPLOY JOB - Runs on Linux to use Azure CLI
@@ -45,9 +50,9 @@ jobs:
 
     steps:
       - name: Download DACPAC artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
-          name: dacpac-artifact
+          name: ${{ env.PROJECT_NAME }}.${{ github.run_id }}
           path: dacpac
 
       - name: Azure Login

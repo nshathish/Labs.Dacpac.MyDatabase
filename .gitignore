@@ -28,3 +28,6 @@ obj/
 # Backup files
 *.bak
 *.log
+
+# Ignore SSDT intermediate build files
+*.jfm
