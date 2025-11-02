@@ -22,16 +22,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: "9.0.x"
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
 
-      - name: Restore dependencies
-        run: dotnet restore ${{ env.PROJECT_PATH }}
+      - name: Restore NuGet packages
+        run: nuget restore ${{ env.PROJECT_PATH }}
 
-      - name: Build DACPAC
-        run: dotnet build "${{ env.PROJECT_PATH }}" -p:NetCoreBuild=true -c Release --no-restore
+      - name: Build DACPAC project
+        run: msbuild "${{ env.PROJECT_PATH }}" /p:Configuration=Release
 
       - name: Upload DACPAC artifact
         uses: actions/upload-artifact@v5
