@@ -14,6 +14,9 @@ on:
   # 🔹 Allow manual triggering (optional)
   workflow_dispatch:
 
+permissions:
+  pull-requests: write # ✅ allows posting PR comments
+
 env:
   PROJECT_NAME: Labs.Dacpac.MyDatabase
   PROJECT_PATH: Labs.Dacpac.MyDatabase/Labs.Dacpac.MyDatabase.sqlproj
